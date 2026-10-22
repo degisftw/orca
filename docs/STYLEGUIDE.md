@@ -177,6 +177,8 @@ When a control has multiple plausible primitives, use this fork:
 
 If you find yourself styling around a primitive (`<Popover>` to act like a `<Dialog>`, or vice versa), stop and reconsider — the focus-management semantics differ and a future contributor will be misled by the mismatch.
 
+Toasts shown above a modal keep their close button clickable. Dismissing a toast must preserve the modal's focus and unsaved input, without closing the modal or enabling other toast actions behind its interaction lock.
+
 ### Tooltips
 
 Tooltips exist to _name_ a control whose meaning isn't obvious from its appearance. They are not the place to teach, persuade, or warn — anything users need to read while acting belongs in the visible UI.

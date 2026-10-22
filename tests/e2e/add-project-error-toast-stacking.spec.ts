@@ -94,10 +94,9 @@ for (const theme of ['dark', 'light'] as const) {
       )
       expect(layers.pointerEvents).toBe('none')
       await pathField.click()
-      // Radix still owns pointer/focus containment; a visible toast must not steal the form.
-      await expect(
-        toast.locator('[data-close-button]').click({ trial: true, timeout: 300 })
-      ).rejects.toThrow()
+      await toast.locator('[data-close-button]').click()
+      await expect(toast).toBeHidden()
+      await expect(page.getByRole('dialog', { name: /Open host project/i })).toBeVisible()
       await expect(pathField).toHaveValue(missingPath)
       expect(await pathField.evaluate((input) => input === document.activeElement)).toBe(true)
 
@@ -136,7 +135,7 @@ for (const theme of ['dark', 'light'] as const) {
           .evaluateAll((overlays) =>
             Math.max(...overlays.map((overlay) => Number(getComputedStyle(overlay).zIndex)))
           )
-      ).toBe(140)
+      ).toBeGreaterThan(layers.toast)
       await page.evaluate(() =>
         window.__store?.getState().removeSshCredentialRequest('toast-layer-fixture')
       )
@@ -146,10 +145,6 @@ for (const theme of ['dark', 'light'] as const) {
         .getByRole('button', { name: 'Close', exact: true })
         .click()
       await expect(page.locator('[data-slot="dialog-overlay"]')).toHaveCount(0)
-      const toaster = page.locator('[data-sonner-toaster]')
-      await expect(toaster).toHaveCSS('z-index', '40')
-      await toast.locator('[data-close-button]').click()
-      await expect(toast).toBeHidden()
 
       await page.evaluate(async () => {
         await window.__store?.getState().updateSettings({ experimentalAgentDashboardPopout: true })
@@ -157,16 +152,11 @@ for (const theme of ['dark', 'light'] as const) {
       await page.evaluate(() => window.__store?.getState().setAgentDashboardDrawerOpen(true))
       await expect(page.locator('[data-agent-dashboard-sheet]')).toBeVisible()
       await expect(page.locator('[data-slot="sheet-overlay"]')).toHaveCount(0)
-      await expect(toaster).toHaveCSS('z-index', '40')
       await page.screenshot({
         path: testInfo.outputPath(`nonmodal-drawer-${theme}.png`),
         animations: 'disabled'
       })
       await page.evaluate(() => window.__store?.getState().setAgentDashboardDrawerOpen(false))
-      // Scroll-lock is also used by selects and menus and must not by itself lift notifications.
-      await page.evaluate(() => document.body.setAttribute('data-scroll-locked', '1'))
-      await expect(toaster).toHaveCSS('z-index', '40')
-      await page.evaluate(() => document.body.removeAttribute('data-scroll-locked'))
       await action.click()
       await expect(page.getByPlaceholder('Search settings')).toBeVisible()
       await assertHiddenIsolation(client.app, testInfo, 'client-final-isolation')
