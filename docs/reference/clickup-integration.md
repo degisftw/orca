@@ -32,6 +32,10 @@ Select **ClickUp** from the Tasks source picker to:
 - create tasks in a selected ClickUp List;
 - update a task and start a linked Orca workspace.
 
+The task detail Status picker loads the task's List directly to obtain its
+configured workflow. Full List details are cached for five minutes separately
+from hierarchy summaries, which may omit statuses.
+
 A paired mobile client can search assigned ClickUp tasks, read descriptions and
 comments, open the task in ClickUp, and start a linked Orca workspace in a
 selected Git repository. Task creation and metadata editing remain on desktop.

@@ -122,6 +122,48 @@ describe('ClickUp List hierarchy', () => {
     expect(clickUpRequestMock).toHaveBeenCalledTimes(1)
   })
 
+  it('loads and caches full List statuses after a hierarchy summary was cached', async () => {
+    const { listClickUpLists } = await import('./list-hierarchy')
+    await listClickUpLists('team-1', null, 'space-1')
+    clickUpRequestMock.mockResolvedValue({
+      id: 'list-1',
+      name: 'Inbox',
+      statuses: [
+        { status: 'in progress', type: 'custom' },
+        { status: 'complete', type: 'closed' }
+      ]
+    })
+    clickUpRequestMock.mockClear()
+
+    const [first, concurrent] = await Promise.all([
+      listClickUpLists('team-1', 'list-1'),
+      listClickUpLists('team-1', 'list-1')
+    ])
+    expect(first[0]?.statuses.map((status) => status.name)).toEqual(['in progress', 'complete'])
+    expect(concurrent).toEqual(first)
+    await expect(listClickUpLists('team-1', 'list-1')).resolves.toEqual(first)
+    expect(clickUpRequestMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not reuse cached List details after reconnecting with another token', async () => {
+    const { listClickUpLists } = await import('./list-hierarchy')
+    clickUpRequestMock.mockResolvedValue({
+      id: 'list-1',
+      name: 'Inbox',
+      statuses: [{ status: 'open', type: 'open' }]
+    })
+    await listClickUpLists('team-1', 'list-1')
+    getClientsMock.mockReturnValue([{ ...client(), token: 'pk_other' }])
+    clickUpRequestMock.mockResolvedValue({
+      id: 'list-1',
+      name: 'Inbox',
+      statuses: [{ status: 'review', type: 'custom' }]
+    })
+
+    const lists = await listClickUpLists('team-1', 'list-1')
+    expect(lists[0]?.statuses.map((status) => status.name)).toEqual(['review'])
+  })
+
   it('refetches after a failed walk instead of caching the failure', async () => {
     clickUpRequestMock.mockRejectedValueOnce(new Error('Rate limit reached'))
     const { listClickUpLists } = await import('./list-hierarchy')

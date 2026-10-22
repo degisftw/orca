@@ -25,10 +25,12 @@ const HIERARCHY_TTL_MS = 5 * 60_000
 type CacheEntry<T> = { loadedAt: number; value: Promise<T> }
 const spaceCache = new Map<string, CacheEntry<ClickUpSpace[]>>()
 const spaceListCache = new Map<string, CacheEntry<ClickUpList[]>>()
+const listDetailCache = new Map<string, CacheEntry<ClickUpList[]>>()
 
 export function clearClickUpListCache(): void {
   spaceCache.clear()
   spaceListCache.clear()
+  listDetailCache.clear()
 }
 
 onClickUpDisconnect(clearClickUpListCache)
@@ -164,21 +166,16 @@ async function listsForWorkspace(
   return lists.flat()
 }
 
-async function getListForWorkspace(
+function getListForWorkspace(
   client: ClickUpClientForWorkspace,
   listId: string
 ): Promise<ClickUpList[]> {
-  for (const [key, entry] of spaceListCache) {
-    if (key.startsWith(cacheKey(client, '')) && Date.now() - entry.loadedAt < HIERARCHY_TTL_MS) {
-      const hit = (await entry.value.catch(() => [])).find((list) => list.id === listId)
-      if (hit) {
-        return [hit]
-      }
-    }
-  }
-  const response = await clickUpRequest<unknown>(client, `/list/${encodeURIComponent(listId)}`)
-  const list = normalizeList(response, client)
-  return list ? [list] : []
+  // Hierarchy summaries can omit statuses; only the List endpoint supplies its full workflow.
+  return cached(listDetailCache, cacheKey(client, listId), async () => {
+    const response = await clickUpRequest<unknown>(client, `/list/${encodeURIComponent(listId)}`)
+    const list = normalizeList(response, client)
+    return list ? [list] : []
+  })
 }
 
 function listSortKey(list: ClickUpList): string {
