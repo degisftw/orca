@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowRight, ExternalLink, Loader2, MessageSquare } from 'lucide-react'
-import type { ClickUpComment, ClickUpList, ClickUpTask } from '../../../shared/clickup-types'
+import type {
+  ClickUpComment,
+  ClickUpList,
+  ClickUpTask,
+  ClickUpTaskUpdate
+} from '../../../shared/clickup-types'
 import type { TaskSourceContext } from '../../../shared/task-source-context'
 import {
   clickUpAddTaskComment,
@@ -102,23 +107,26 @@ export function ClickUpTaskDetailSheet({
     if (!task || !name.trim() || saving) {
       return
     }
+    const nextPriority = priority === 'none' ? null : Number(priority)
+    // Search descriptions and date-only inputs are lossy; leave untouched server fields alone.
+    const updates: ClickUpTaskUpdate = {
+      ...(name.trim() !== task.name ? { name: name.trim() } : {}),
+      ...(description !== (task.description ?? '') ? { description } : {}),
+      ...(status !== task.status.name ? { status } : {}),
+      ...(nextPriority !== (task.priority?.id ?? null) ? { priority: nextPriority } : {}),
+      ...(dueDate !== dateInputValue(task.dueDate) ? { dueDate: dueDate || null } : {})
+    }
+    if (Object.keys(updates).length === 0) {
+      return
+    }
     setSaving(true)
     setError(null)
-    const result = await clickUpUpdateTask(
-      sourceContext,
-      task.id,
-      {
-        name: name.trim(),
-        description,
-        status,
-        priority: priority === 'none' ? null : Number(priority),
-        dueDate: dueDate || null
-      },
-      task.workspaceId
-    ).catch((cause: unknown) => ({
-      ok: false as const,
-      error: cause instanceof Error ? cause.message : 'Task update failed.'
-    }))
+    const result = await clickUpUpdateTask(sourceContext, task.id, updates, task.workspaceId).catch(
+      (cause: unknown) => ({
+        ok: false as const,
+        error: cause instanceof Error ? cause.message : 'Task update failed.'
+      })
+    )
     if (!result.ok) {
       setSaving(false)
       setError(result.error)
@@ -127,10 +135,14 @@ export function ClickUpTaskDetailSheet({
     patchTask(
       task.id,
       {
-        name: name.trim(),
-        description,
-        status: { ...task.status, name: status },
-        dueDate: dueDate || null
+        ...(updates.name !== undefined ? { name: updates.name } : {}),
+        ...(updates.description !== undefined ? { description: updates.description } : {}),
+        ...(updates.status !== undefined
+          ? { status: { ...task.status, name: updates.status } }
+          : {}),
+        ...(updates.dueDate !== undefined ? { dueDate: updates.dueDate } : {}),
+        // Non-null priority metadata comes from the authoritative refresh below.
+        ...(updates.priority === null ? { priority: null } : {})
       },
       sourceContext
     )

@@ -36,6 +36,10 @@ The task detail Status picker loads the task's List directly to obtain its
 configured workflow. Full List details are cached for five minutes separately
 from hierarchy summaries, which may omit statuses.
 
+Saving task details sends only fields you edited. Renaming a task leaves its
+description formatting and exact due time unchanged. Changing the date field
+sends the chosen date; saving without edits does not send an update.
+
 A paired mobile client can search assigned ClickUp tasks, read descriptions and
 comments, open the task in ClickUp, and start a linked Orca workspace in a
 selected Git repository. Task creation and metadata editing remain on desktop.
