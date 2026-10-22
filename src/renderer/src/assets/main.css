@@ -557,6 +557,16 @@ body:has(> [data-slot='dialog-overlay'], > [data-slot='sheet-overlay']) {
   line-height: 1.45;
 }
 
+/* Modal layers block toast actions, but visible dismiss controls remain usable. */
+[data-sonner-toaster]
+  [data-sonner-toast][data-visible='true'][data-removed='false']:is(
+    [data-front='true'],
+    [data-expanded='true']
+  )
+  [data-close-button] {
+  pointer-events: auto;
+}
+
 [data-sonner-toaster] [data-sonner-toast][data-styled='true'] [data-close-button] {
   /* Why: Sonner's dark-theme defaults can resolve the close icon and button
      background to the same color; keep the X readable on both Orca themes. */
