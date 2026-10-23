@@ -1,5 +1,5 @@
 import path from 'node:path'
-import type { ElectronApplication, TestInfo } from '@stablyai/playwright-test'
+import type { ElectronApplication, Locator, TestInfo } from '@stablyai/playwright-test'
 import { test, expect } from './helpers/orca-app'
 import { openSidebarProjectDialog } from './helpers/sidebar-project-dialog'
 import {
@@ -92,13 +92,64 @@ for (const theme of ['dark', 'light'] as const) {
       expect(layers.toast, 'dialog overlay covers the project error').toBeGreaterThan(
         layers.overlay
       )
-      expect(layers.pointerEvents).toBe('none')
+      expect(layers.pointerEvents).toBe('auto')
       await pathField.click()
       await toast.locator('[data-close-button]').click()
       await expect(toast).toBeHidden()
       await expect(page.getByRole('dialog', { name: /Open host project/i })).toBeVisible()
       await expect(pathField).toHaveValue(missingPath)
       expect(await pathField.evaluate((input) => input === document.activeElement)).toBe(true)
+
+      for (const pointerType of ['mouse', 'touch'] as const) {
+        await client.app.evaluate(({ BrowserWindow }) => {
+          BrowserWindow.getAllWindows()[0].webContents.send('star-nag:show', {
+            mode: 'web',
+            surface: 'toast'
+          })
+        })
+        const customToast = page
+          .locator('[data-sonner-toast]')
+          .filter({ hasText: 'Onboarding completed!' })
+        await expect(customToast).toBeVisible()
+        const clickToastControl = async (control: Locator): Promise<void> => {
+          if (pointerType === 'mouse') {
+            await control.click()
+            return
+          }
+          const cdp = await page.context().newCDPSession(page)
+          try {
+            await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true })
+            await control.click({ trial: true })
+            const bounds = await control.boundingBox()
+            if (!bounds) {
+              throw new Error('Missing toast control target')
+            }
+            await cdp.send('Input.dispatchTouchEvent', {
+              type: 'touchStart',
+              touchPoints: [{ x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }]
+            })
+            await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+          } finally {
+            await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: false })
+            await cdp.detach()
+          }
+        }
+        await pathField.click()
+        await clickToastControl(customToast.getByRole('button', { name: 'Later', exact: true }))
+        await expect(customToast).toBeVisible()
+        await expect(page.getByRole('dialog', { name: /Open host project/i })).toBeVisible()
+        await expect(pathField).toHaveValue(missingPath)
+        expect(await pathField.evaluate((input) => input === document.activeElement)).toBe(true)
+        await clickToastControl(customToast.getByRole('button', { name: 'Dismiss', exact: true }))
+        await expect(customToast).toBeHidden()
+        await expect(page.getByRole('dialog', { name: /Open host project/i })).toBeVisible()
+        await expect(pathField).toHaveValue(missingPath)
+        expect(await pathField.evaluate((input) => input === document.activeElement)).toBe(true)
+      }
+      await page.screenshot({
+        path: testInfo.outputPath(`toast-dismissed-modal-preserved-${theme}.png`),
+        animations: 'disabled'
+      })
 
       // A real action-toast renderer, fed a synthetic notification in this disposable client only.
       await client.app.evaluate(({ ipcMain, BrowserWindow }) => {
@@ -111,7 +162,11 @@ for (const theme of ['dark', 'light'] as const) {
         .filter({ hasText: 'A device tried to connect but is not paired' })
       const action = actionToast.getByRole('button', { name: 'Open Mobile Settings' })
       await expect(action).toBeVisible()
-      await expect(action.click({ trial: true, timeout: 300 })).rejects.toThrow()
+      await action.click()
+      await actionToast.locator('[data-title]').click()
+      await expect(actionToast).toBeVisible()
+      await expect(page.getByRole('dialog', { name: /Open host project/i })).toBeVisible()
+      await expect(page.getByPlaceholder('Search settings')).toBeHidden()
       await expect(pathField).toHaveValue(missingPath)
       expect(await pathField.evaluate((input) => input === document.activeElement)).toBe(true)
 

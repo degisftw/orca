@@ -5,8 +5,22 @@ import {
   OctagonXIcon,
   TriangleAlertIcon
 } from 'lucide-react'
+import type { SyntheticEvent } from 'react'
 import { Toaster as Sonner, type ToasterProps } from 'sonner'
 import { useAppStore } from '@/store'
+
+function blockModalToastInteraction(event: SyntheticEvent): void {
+  const target = event.target
+  if (
+    target instanceof Element &&
+    target.closest('[data-sonner-toast]') !== null &&
+    target.closest('[data-close-button]') === null &&
+    target.ownerDocument.body.style.pointerEvents === 'none'
+  ) {
+    event.preventDefault()
+    event.stopPropagation()
+  }
+}
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const theme = useAppStore((s) => s.settings?.theme) || 'system'
@@ -15,11 +29,16 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <div
       onPointerDownCapture={(event) => {
         if (event.target instanceof Element && event.target.closest('[data-close-button]')) {
-          // Dismissing a toast must neither move modal focus nor dismiss the modal beneath it.
+          // Toast interactions must not reach the backdrop or move modal focus.
           event.preventDefault()
           event.stopPropagation()
+        } else {
+          blockModalToastInteraction(event)
         }
       }}
+      onClickCapture={blockModalToastInteraction}
+      onAuxClickCapture={blockModalToastInteraction}
+      onContextMenuCapture={blockModalToastInteraction}
     >
       <Sonner
         theme={theme as ToasterProps['theme']}

@@ -179,7 +179,7 @@ When a control has multiple plausible primitives, use this fork:
 
 If you find yourself styling around a primitive (`<Popover>` to act like a `<Dialog>`, or vice versa), stop and reconsider — the focus-management semantics differ and a future contributor will be misled by the mismatch.
 
-Toasts shown above a modal keep their close button clickable. Dismissing a toast must preserve the modal's focus and unsaved input, without closing the modal or enabling other toast actions behind its interaction lock.
+Above a modal, only toast close buttons remain clickable. Dismissing a toast must leave the modal open, with focus and unsaved input intact.
 
 ### Tooltips
 
