@@ -9,13 +9,22 @@ import type { SyntheticEvent } from 'react'
 import { Toaster as Sonner, type ToasterProps } from 'sonner'
 import { useAppStore } from '@/store'
 
+// Why: scope to real modals; Radix menus/selects also set body pointer-events:none.
+function isModalOverlayOpen(element: Element): boolean {
+  return (
+    element.ownerDocument.body.querySelector(
+      ":scope > [data-slot='dialog-overlay'], :scope > [data-slot='sheet-overlay']"
+    ) !== null
+  )
+}
+
 function blockModalToastInteraction(event: SyntheticEvent): void {
   const target = event.target
   if (
     target instanceof Element &&
     target.closest('[data-sonner-toast]') !== null &&
     target.closest('[data-close-button]') === null &&
-    target.ownerDocument.body.style.pointerEvents === 'none'
+    isModalOverlayOpen(target)
   ) {
     event.preventDefault()
     event.stopPropagation()
@@ -28,7 +37,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <div
       onPointerDownCapture={(event) => {
-        if (event.target instanceof Element && event.target.closest('[data-close-button]')) {
+        if (
+          event.target instanceof Element &&
+          event.target.closest('[data-close-button]') &&
+          isModalOverlayOpen(event.target)
+        ) {
           // Toast interactions must not reach the backdrop or move modal focus.
           event.preventDefault()
           event.stopPropagation()
